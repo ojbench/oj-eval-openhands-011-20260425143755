@@ -158,19 +158,10 @@ public:
     void push(const T &e) {
         Node *newNode = new Node(e);
         
-        // Create a copy of current state for exception safety
-        Node *oldRoot = copyNode(root);
-        size_t oldSize = currentSize;
-        
         try {
             root = mergeNodes(root, newNode);
             currentSize++;
-            deleteNode(oldRoot);  // Clean up old copy
         } catch (...) {
-            // Restore original state
-            deleteNode(root);
-            root = oldRoot;
-            currentSize = oldSize;
             delete newNode;
             throw runtime_error();
         }
@@ -185,21 +176,22 @@ public:
             throw container_is_empty();
         }
         
-        // Create a copy of current state for exception safety
-        Node *oldRoot = copyNode(root);
-        size_t oldSize = currentSize;
+        // Save the root data for potential restoration
+        T rootData = root->data;
+        Node *left = root->left;
+        Node *right = root->right;
+        int rootNpl = root->npl;
+        delete root;
         
         try {
-            Node *left = root->left;
-            Node *right = root->right;
-            delete root;
             root = mergeNodes(left, right);
             currentSize--;
-            deleteNode(oldRoot);  // Clean up old copy
         } catch (...) {
-            // Restore original state
-            root = oldRoot;
-            currentSize = oldSize;
+            // Restore the deleted node
+            root = new Node(rootData);
+            root->left = left;
+            root->right = right;
+            root->npl = rootNpl;
             throw runtime_error();
         }
     }
@@ -229,9 +221,9 @@ public:
     void merge(priority_queue &other) {
         if (this == &other) return;
         
-        // Create copies of both states for exception safety
-        Node *oldRoot1 = copyNode(root);
-        Node *oldRoot2 = copyNode(other.root);
+        // Save pointers for potential restoration
+        Node *oldRoot1 = root;
+        Node *oldRoot2 = other.root;
         size_t oldSize1 = currentSize;
         size_t oldSize2 = other.currentSize;
         
@@ -240,13 +232,8 @@ public:
             currentSize += other.currentSize;
             
             // Clear other queue
-            deleteNode(other.root);
             other.root = nullptr;
             other.currentSize = 0;
-            
-            // Clean up old copies
-            deleteNode(oldRoot1);
-            deleteNode(oldRoot2);
         } catch (...) {
             // Restore both original states
             root = oldRoot1;
